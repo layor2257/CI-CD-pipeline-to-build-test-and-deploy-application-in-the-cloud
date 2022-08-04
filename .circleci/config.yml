@@ -234,28 +234,23 @@ jobs:
       # Checkout code from git
       - checkout
       - run:
-          name: Install depemdemcies
-          command: |
-        
-            apk add --update --no-cache tar gzip nodejs npm aws-cli curl
-      - restore_cache:
-            keys: [backend-build]
-    
-
-      - run:
           name: Run migrations
           command: |
             cd backend
             npm install
-            npm run bild
-            npm run migrations >> migrations_dump.txt
-     
+            npm run migrations > migrations_dump.txt
+             
+            
+      - restore_cache:
+            keys: [backend-build]
+  
+      
       - run:     
-          name: Send migration results to memstash
+          name: Send migration results to kvdb
           command: |
             if grep -q "has been executed successfully" ~/project/backend/migrations_dump.txt
             then
-              curl --insecure https://kvdb.io/WoBxgQEvnjPqvKaGJ4ZMnZ/migration_${CIRCLE_WORKFLOW_ID:0:7} -d '1'
+              curl --insecure https://kvdb.io/WoBxgQEvnjPqvKaGJ4ZMnZ/migration_${CIRCLE_WORKFLOW_ID:0:7} 
             fi
       # Here's where you will add some code to rollback on failure
       - destroy-environment:
