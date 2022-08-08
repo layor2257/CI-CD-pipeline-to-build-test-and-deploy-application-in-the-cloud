@@ -22,24 +22,22 @@ commands:
   revert-migrations:
     description: Revert the last migration if successfully run in the current workflow.
     parameters:
-      # Add parameter here 
-      workflow_id:
-        default: "${CIRCLE_WORKFLOW_ID:0:7}"
-        type: string
-    
+      # Add parameter here     
     steps:
       - run:
           name: Revert migrations
-          when: on_fail
+          # Add when this will run
           command: |
             # Curl command here to see if there was a successful migration associated with the workflow id, store result in SUCCESS variable
-            SUCCESS=$(curl --insecure "https://kvdb.io/WoBxgQEvnjPqvKaGJ4ZMnZ/migration_<<parameters.workflow_id>>")
+            SUCCESS = 1
             if(( $SUCCESS==1 )); 
             then
-              cd ~/project/backend
-              npm install
-              npm run migrations:revert
+            #  cd ~/project/backend
+            #  npm install
+            #  Add revert code here. You can find this in the Getting Started section.
+              exit 1
             fi
+            
 jobs:
   build-frontend:
     docker:
@@ -222,9 +220,30 @@ jobs:
       - run:
           name: Configure server
           command: |
+
+            echo NODE_ENV=production > ~/project/backend/.env
+            echo TYPEORM_CONNECTION=$TYPEORM_CONNECTION >> ~/project/backend/.env
+            echo TYPEORM_DATABASE=$TYPEORM_DATABASE >> ~/project/backend/.env
+            echo TYPEORM_ENTITIES=$TYPEORM_ENTITIES >> ~/project/backend/.env
+            echo TYPEORM_MIGRATIONS=$TYPEORM_MIGRATIONS >> ~/project/backend/.env
+            echo TYPEORM_MIGRATIONS_DIR=$TYPEORM_MIGRATIONS_DIR >> ~/project/backend/.env
+            echo TYPEORM_PASSWORD=$TYPEORM_PASSWORD >> ~/project/backend/.env
+            echo TYPEORM_PORT=$TYPEORM_PORT >> ~/project/backend/.env
+            echo TYPEORM_USERNAME=$TYPEORM_USERNAME >> ~/project/backend/.env
+            cat ~/project/backend/.env
+
+
             cd ~/project/.circleci/ansible
             ansible-playbook -i inventory.txt configure-server.yml \
-      # Here's where you will add some code to rollback on failure
+      
+
+       # save backend back to workspace
+      - persist_to_workspace:
+          root: ~/
+          paths:
+            - project/backend
+
+       # Here's where you will add some code to rollback on failure
       - destroy-environment:
           workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}      
 
@@ -249,94 +268,89 @@ jobs:
             then
               curl --insecure https://kvdb.io/WoBxgQEvnjPqvKaGJ4ZMnZ/migration_${CIRCLE_WORKFLOW_ID:0:7} 
             fi
-      # Here's where you will add some code to rollback on failure
+     
       - destroy-environment
       - revert-migrations
      # Here's where you will add some code to rollback on failure      
 
-  deploy-frontend:
-    docker:
-      # Docker image here that supports AWS CLI
-      # - image: amazon/aws-cli
-      - image: python:3.10-alpine3.16
-    steps:
-      # Checkout code from git
-      - checkout
+  # deploy-frontend:
+  #   docker:
+  #     - image: cimg/base:stable
+  #   steps:
+  #     - checkout
 
-      - add_ssh_keys:
-          fingerprints: 
-            - "67:16:bd:30:c5:d6:3b:bd:45:cf:88:f5:98:6c:5e:d7"
-      - attach_workspace:
-          at: ~/
-      - run:
-          name: Install deps
-          command: |
-            apk add --update --no-cache tar gzip nodejs npm ansible curl aws-cli
-      - run:
-          name: Get backend url
-          command: |
-            # your code here
-            export BACKEND_IP=$(aws ec2 describe-instances \
-            --query 'Reservations[*].Instances[*].PublicIpAddress' \
-            --filters Name=tag:aws:cloudformation:stack-name,Values=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7} \
-            --output text)
-            export API_URL="http://${BACKEND_IP}:3030"
-            echo "API_URL = ${API_URL}"
-            echo "API_URL=http://${BACKEND_IP}:3030" >> frontend/.env
-            cat frontend/.env
-      - run:
-          name: Deploy frontend objects
-          command: |
-            cd frontend
-            npm install --silent
-            npm run build 2>/dev/null
-            tar -czvf artifact-"${CIRCLE_WORKFLOW_ID:0:7}".tar.gz dist 2>/dev/null
-            aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
-      - destroy-environment:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
-      - revert-migrations:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
-      # Here's where you will add some code to rollback on failure      
+  #     - add_ssh_keys:
+  #         fingerprints: 
+  #           - "67:16:bd:30:c5:d6:3b:bd:45:cf:88:f5:98:6c:5e:d7"
+  #     - attach_workspace:
+  #         at: ~/
+
+  #     - install_nodejs
+  #     - install_awscli
+  #     - install_ansible
+       
+
+  #     - run:
+  #         name: Get backend url
+  #         command: |
+  #           export BACKEND_IP=$(aws ec2 describe-instances \
+  #           --query 'Reservations[*].Instances[*].PublicIpAddress' \
+  #           --filter Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7} \
+  #           --output text 
+  #           )
+  #           export API_URL="http://${BACKEND_IP}:3030"
+  #           echo "API_URL = ${API_URL}"
+  #           echo API_URL="http://${BACKEND_IP}:3030" >> frontend/.env
+  #           cat frontend/.env
+  #     - run:
+  #         name: Deploy frontend objects
+  #         command: |
+  #           cd frontend
+  #           sudo npm install -g npm@latest
+  #           rm -rf node_modules
+  #           npm install
+  #           npm run build
+  #           aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+  #     - destroy-environment
+  #     - revert-migrations
+  #     # Here's where you will add some code to rollback on failure      
                     
-  deploy-backend:
-    docker:
-      # Docker image here that supports Ansible
-      - image: python:3.10-alpine3.16
-    steps:
-      # Checkout code from git
-      - checkout
-      # Add ssh keys with fingerprint
-      - add_ssh_keys:
-          fingerprints:
-            - '67:16:bd:30:c5:d6:3b:bd:45:cf:88:f5:98:6c:5e:d7'
-      # attach workspace
-      - attach_workspace:
-          at: ~/
-      - run:
-          name: Install dependencies
-          command: |
-            apk add --update --no-cache tar gzip nodejs npm aws-cli ansible curl
-      - run:
-          name: Deploy backend
-          command: |
-            # your code here
-            cd backend
-            npm install --silent
-            npm run build 2>/dev/null
-            cd ..
-            tar -C backend -czvf artifact.tar.gz . 2>/dev/null
-            mkdir -p ~/project/.circleci/ansible/roles/deploy/files/
-            mv artifact.tar.gz .circleci/ansible/roles/deploy/files/artifact.tar.gz
-            cp ~/project/backend/.env .circleci/ansible/roles/deploy/files/backend.env
-            cd .circleci/ansible
-            cat inventory.txt
-            ansible-galaxy install weareinteractive.environment
-            ansible-playbook -i inventory.txt deploy-backend.yml \
-          
-      - destroy-environment:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
-      - revert-migrations:
-          workflow_id: ${CIRCLE_WORKFLOW_ID:0:7}
+  # deploy-backend:
+  #   docker:
+  #     - image: cimg/base:stable
+  #   steps:
+  #     # Add ssh keys with fingerprint
+  #     # attach workspace
+  #     - checkout
+  #     - add_ssh_keys:
+  #         fingerprints: 
+  #           - "67:16:bd:30:c5:d6:3b:bd:45:cf:88:f5:98:6c:5e:d7"
+  #     - attach_workspace:
+  #         at: ~/
+  #     - install_nodejs
+  #     - install_awscli
+  #     - install_ansible
+  #     - run:
+  #         name: Deploy backend
+  #         command: |
+  #           cd backend
+
+  #           npm i
+  #           npm run build
+  #           cd ..
+
+  #           cd .circleci/ansible
+  #           mkdir files
+  #           cd files
+  #           tar -C ../../../backend -czvf artifact.tar.gz .
+  #           cd ../
+
+  #            echo "Contents  of the inventory.txt file is -------"
+  #           cat inventory.txt
+  #           ansible-playbook -i inventory.txt deploy-backend.yml
+
+  #     - destroy-environment
+  #     - revert-migrations
       # Here's where you will add some code to rollback on failure  
 
   # smoke-test:
@@ -412,17 +426,17 @@ workflows:
           requires: [build-frontend]
       - deploy-infrastructure:
           requires: [test-frontend, test-backend, scan-frontend, scan-backend]
-          filters:
-             branches:
-               only: [test-feature-branch]
+      #     filters:
+      #       branches:
+      #         only: [test-feature-branch]
       - configure-infrastructure:
           requires: [deploy-infrastructure]
       - run-migrations:
           requires: [configure-infrastructure]
-      - deploy-frontend:
-           requires: [run-migrations]
-      - deploy-backend:
-           requires: [run-migrations]
+      # - deploy-frontend:
+      #      requires: [run-migrations]
+      # - deploy-backend:
+      #      requires: [run-migrations]
       # - smoke-test:
       #     requires: [deploy-backend, deploy-frontend]
       # - cloudfront-update:
