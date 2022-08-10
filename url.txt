@@ -3,7 +3,7 @@ https://github.com/layor2257/cdond-c3-projectstarter
 
 S3 Bucket (URL02)
 
-http://udapeople-7218140.s3-website-us-east-1.amazonaws.com
+http://udapeople-8b11387.s3-website-us-east-1.amazonaws.com
 
 
 
